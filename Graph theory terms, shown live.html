@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Graph theory terms, shown live</title>
+<style>
+:root{--bg:#F0F2F8;--card:#fff;--ink:#1B2236;--mute:#59647F;--line:#D5DBE8;--cur:#0F9D8A;--acc:#2F6FDE;--on:#E0F4F0;--edge:#8E99B3;
+--ui:"Segoe UI",Calibri,Helvetica,Arial,sans-serif;--num:Cambria,Georgia,"Times New Roman",serif;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1320;--card:#182033;--ink:#E7ECF6;--mute:#9AA6C0;--line:#2B3650;--cur:#3CCBB5;--acc:#7FA8FF;--on:#17403C;--edge:#6F7B99}}
+:root[data-theme="dark"]{--bg:#0E1320;--card:#182033;--ink:#E7ECF6;--mute:#9AA6C0;--line:#2B3650;--cur:#3CCBB5;--acc:#7FA8FF;--on:#17403C;--edge:#6F7B99}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--ui)}
+main{max-width:1060px;margin:0 auto;padding:24px 16px 40px}
+h1{font:700 clamp(28px,5vw,40px)/1.1 var(--num);margin:0 0 6px}
+.lead{color:var(--mute);margin:0 0 20px;max-width:62ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:800px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.side{position:sticky;top:12px}
+@media (max-width:800px){.side{position:static}}
+button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+:focus-visible{outline:2px solid var(--cur);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center}
+.row span{font-size:13px;color:var(--mute);margin-right:4px}
+.row button{font-size:14px;padding:3px 9px}
+.row button[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+svg{display:block;width:100%;height:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;touch-action:none;user-select:none}
+.hint{font-size:13px;color:var(--mute);margin:8px 0 6px;min-height:20px}
+h3{font-size:14px;margin:12px 0 6px;color:var(--mute);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:14px;border-radius:999px;padding:4px 10px}
+.chip.on{background:var(--on);border-color:var(--cur)}
+.chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.side h2{font:700 24px/1.2 var(--num);margin:0 0 6px}
+.desc{margin:0 0 12px}
+.out{border-top:1px dashed var(--line);padding-top:12px}
+.big{font:italic 26px/1.3 var(--num)}
+.yes{color:var(--cur);font-weight:700;font-size:20px;margin:0 0 4px}.no{color:#C8553D;font-weight:700;font-size:20px;margin:0 0 4px}
+.note{color:var(--mute);font-size:14px;margin:8px 0 0}
+.edge{stroke:var(--edge);stroke-width:2.5;stroke-linecap:round}
+.vtx{fill:var(--card);stroke:var(--ink);stroke-width:2.5}
+.lbl{font:italic 700 17px var(--num);fill:var(--ink);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.ring{fill:none;stroke:var(--cur);stroke-width:3;stroke-dasharray:5 4}
+.bd{fill:var(--ink)}.bt{font:700 11px var(--ui);fill:var(--card);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.tag{font:700 13px var(--ui);fill:var(--cur);text-anchor:middle}
+</style>
+</head>
+<body>
+<main>
+<h1>Graph theory terms, shown live</h1>
+<p class="lead">Build a graph, choose a term, and watch it light up on your drawing. Terms that describe your graph right now are tinted green.</p>
+<div class="grid">
+ <section class="card">
+  <div class="row" id="modes"><span>Tool</span></div>
+  <svg id="svg" viewBox="0 0 640 420" role="img" aria-label="Graph canvas"></svg>
+  <p class="hint" id="hint"></p>
+  <div class="row" id="presets"><span>Examples</span></div>
+  <div id="terms"></div>
+ </section>
+ <aside class="card side" aria-live="polite" id="detail"></aside>
+</div>
+</main>
+<script>
+const $=s=>document.querySelector(s),svg=$('#svg'),W=640,H=420;
+const PAL=['#2F6FDE','#E07A1F','#1F9D6B','#B5409B','#8A6D00','#0E8FA3'];
+let V=[],E=[],nid=0,sel=[],mode='select',pend=null,cur='ordersize';
+const key=(a,b)=>a<b?a+'-'+b:b+'-'+a;
+const lab=id=>{const i=V.findIndex(v=>v.id===id);return String.fromCharCode(65+i%26)+(i>=26?Math.floor(i/26):'')};
+const set=a=>'{'+a.map(lab).join(', ')+'}';
+const addV=(x,y)=>{V.push({id:nid,x,y});return nid++};
+const addE=(a,b)=>{if(a!==b&&!E.some(e=>key(e[0],e[1])===key(a,b)))E.push([a,b])};
+function adj(sv=-1,sk=''){const m=new Map();V.forEach(v=>{if(v.id!==sv)m.set(v.id,[])});E.forEach(([a,b])=>{if(a===sv||b===sv||key(a,b)===sk)return;m.get(a).push(b);m.get(b).push(a)});return m}
+function comps(sv,sk){const g=adj(sv,sk),c=new Map();let k=0;for(const id of g.keys()){if(c.has(id))continue;const st=[id];c.set(id,k);while(st.length){const u=st.pop();g.get(u).forEach(w=>{if(!c.has(w)){c.set(w,k);st.push(w)}})}k++}return{c,k}}
+function bfs(s,g){const d=new Map([[s,0]]),p=new Map(),q=[s];for(let i=0;i<q.length;i++){const u=q[i];g.get(u).forEach(w=>{if(!d.has(w)){d.set(w,d.get(u)+1);p.set(w,u);q.push(w)}})}return{d,p}}
+const walk=(p,t)=>{const r=[t];while(p.has(r[0]))r.unshift(p.get(r[0]));return r};
+const pathHL=pa=>{const hv={},he={};pa.forEach((v,i)=>{hv[v]=0;if(i)he[key(pa[i-1],v)]=0});return{hv,he}};
+function findCycle(g){const seen=new Set(),on=new Set(),par=new Map();let res=null;
+ const dfs=(u,p)=>{seen.add(u);on.add(u);par.set(u,p);for(const w of g.get(u)){if(res)return;if(w===p)continue;if(on.has(w)){const c=[u];let x=u;while(x!==w){x=par.get(x);c.push(x)}res=c;return}if(!seen.has(w))dfs(w,u)}on.delete(u)};
+ for(const id of g.keys())if(!seen.has(id)&&!res)dfs(id,null);return res}
+function twoColor(g){const col=new Map();for(const s of g.keys()){if(col.has(s))continue;col.set(s,0);const q=[s];for(let i=0;i<q.length;i++){for(const w of g.get(q[i])){if(!col.has(w)){col.set(w,1-col.get(q[i]));q.push(w)}else if(col.get(w)===col.get(q[i]))return null}}}return col}
+let g,C,dg;
+const need1='<p class="note">Select a vertex first: use the Select tool and tap a vertex.</p>',need2='<p class="note">Select two vertices (s, then t) with the Select tool.</p>';
+const verdict=(ok,y,n,extra={})=>({ok,out:`<p class="${ok?'yes':'no'}">${ok?y:n}</p>`+(extra.why?`<p class="note">${extra.why}</p>`:''),hv:extra.hv||{},he:extra.he||{}});
+const TERMS=[
+{g:'Basics',id:'vertex',n:'Vertex',d:'A point (node) of the graph. Here the vertex set is V.',f:()=>({hv:Object.fromEntries(V.map(v=>[v.id,0])),he:{},out:`<div class="big">V = ${set(V.map(v=>v.id))}</div>`})},
+{g:'Basics',id:'edge',n:'Edge',d:'A connection between two vertices. Here edges are undirected.',f:()=>({hv:{},he:Object.fromEntries(E.map(e=>[key(...e),0])),out:`<div class="big">E = {${E.map(e=>lab(e[0])+lab(e[1])).join(', ')}}</div>`})},
+{g:'Basics',id:'size',n:'Order and size',d:'Order is the number of vertices |V|. Size is the number of edges |E|.',f:()=>({hv:{},he:{},out:`<div class="big">|V| = ${V.length}, |E| = ${E.length}</div>`})},
+{g:'Basics',id:'degree',n:'Degree',d:'The number of edges meeting at a vertex. Handshake lemma: the degrees add up to 2|E|.',f:()=>({hv:{},he:{},badges:1,out:`<p>${V.map(v=>`deg(${lab(v.id)}) = ${dg.get(v.id)}`).join(', ')||'No vertices yet.'}</p><div class="big">Σ deg = ${[...dg.values()].reduce((a,b)=>a+b,0)} = 2 · ${E.length}</div>`})},
+{g:'Basics',id:'nbr',n:'Adjacent vertices',d:'Two vertices are adjacent when an edge joins them. The neighbours of s are all vertices adjacent to s.',f:()=>{if(!sel.length)return{hv:{},he:{},out:need1};const s=sel[0],nb=g.get(s),hv={[s]:0},he={};nb.forEach(w=>{hv[w]=1;he[key(s,w)]=1});return{hv,he,out:`<div class="big">N(${lab(s)}) = ${set(nb)}</div><p class="note">The edges at ${lab(s)} are incident to it.</p>`}}},
+{g:'Basics',id:'iso',n:'Isolated and leaf',d:'An isolated vertex has degree 0. A leaf (pendant vertex) has degree 1.',f:()=>{const i=V.filter(v=>dg.get(v.id)===0).map(v=>v.id),l=V.filter(v=>dg.get(v.id)===1).map(v=>v.id),hv={};i.forEach(v=>hv[v]=1);l.forEach(v=>hv[v]=2);return{hv,he:{},out:`<p>Isolated (orange): ${set(i)}</p><p>Leaves (green): ${set(l)}</p>`}}},
+{g:'Walks',id:'path',n:'Path and distance',d:'A path never repeats a vertex. The distance d(s, t) is the length of a shortest path.',f:()=>{if(sel.length<2)return{hv:{},he:{},out:need2};const[s,t]=sel,{d,p}=bfs(s,g);if(!d.has(t))return{hv:{[s]:0,[t]:1},he:{},out:`<p class="no">No path from ${lab(s)} to ${lab(t)}.</p><p class="note">They lie in different components.</p>`};const pa=walk(p,t);return{...pathHL(pa),out:`<p>${pa.map(lab).join(' → ')}</p><div class="big">d(${lab(s)}, ${lab(t)}) = ${d.get(t)}</div>`}}},
+{g:'Walks',id:'diam',n:'Eccentricity and diameter',d:'Eccentricity of a vertex is its largest distance to any other vertex. The diameter is the largest eccentricity.',f:()=>{let best=null;const ecc=V.map(v=>{const{d,p}=bfs(v.id,g);let m=0,far=v.id;d.forEach((x,k)=>{if(x>m){m=x;far=k}});if(!best||m>best.m)best={m,s:v.id,t:far,p};return`ecc(${lab(v.id)}) = ${m}`});if(!best||!best.m)return{hv:{},he:{},out:'<p class="note">Add at least one edge.</p>'};return{...pathHL(walk(best.p,best.t)),out:`<p>${ecc.join(', ')}</p><div class="big">diameter = ${best.m}</div><p class="note">Distances are measured inside each component. The longest one is drawn.</p>`}}},
+{g:'Walks',id:'cycle',n:'Cycle',d:'A closed path: it starts and ends at the same vertex and repeats nothing else.',f:()=>{const c=findCycle(g);if(!c)return{hv:{},he:{},out:'<p class="no">No cycle: this graph is acyclic.</p>'};const hv={},he={};c.forEach((v,i)=>{hv[v]=1;he[key(v,c[(i+1)%c.length])]=1});return{hv,he,out:`<p>${[...c,c[0]].map(lab).join(' → ')}</p><div class="big">length ${c.length}</div>`}}},
+{g:'Structure',id:'comp',n:'Connected components',d:'Maximal groups of vertices that can reach each other. Each is drawn in its own colour.',f:()=>{const hv={},he={};V.forEach(v=>hv[v.id]=C.c.get(v.id));E.forEach(e=>he[key(...e)]=C.c.get(e[0]));return{hv,he,out:`<div class="big">${C.k} component${C.k===1?'':'s'}</div>`}}},
+{g:'Structure',id:'bridge',n:'Bridge',d:'An edge whose removal splits a component in two.',f:()=>{const b=E.filter(e=>comps(-1,key(...e)).k>C.k),he={};b.forEach(e=>he[key(...e)]=1);return{hv:{},he,out:`<p>${b.length?b.map(e=>lab(e[0])+lab(e[1])).join(', '):'No bridges.'}</p>`}}},
+{g:'Structure',id:'cutv',n:'Cut vertex',d:'A vertex whose removal (with its edges) splits a component in two.',f:()=>{const c=V.filter(v=>comps(v.id).k>C.k-(dg.get(v.id)===0?1:0)).map(v=>v.id),hv={};c.forEach(v=>hv[v]=1);return{hv,he:{},out:`<p>${c.length?'Cut vertices: '+set(c):'No cut vertices.'}</p>`}}},
+{g:'Structure',id:'span',n:'Spanning tree',d:'A tree touching every vertex of a component, using the fewest edges. A disconnected graph gets a spanning forest.',f:()=>{const seen=new Set(),he={},order=sel.length?[sel[0],...V.map(v=>v.id)]:V.map(v=>v.id);order.forEach(r=>{if(seen.has(r))return;const{d,p}=bfs(r,g);d.forEach((_,k)=>seen.add(k));p.forEach((u,k)=>he[key(u,k)]=2)});return{hv:{},he,out:`<div class="big">${Object.keys(he).length} = |V| − ${C.k}</div><p class="note">Green edges are kept. Select a vertex to choose the root.</p>`}}},
+{g:'Types',id:'conn',n:'Connected',d:'Every vertex can reach every other vertex.',f:()=>verdict(V.length>0&&C.k===1,'Yes, one component.','No.',{why:`Components: ${C.k}.`})},
+{g:'Types',id:'tree',n:'Tree',d:'Connected and acyclic, so |E| = |V| − 1.',f:()=>verdict(V.length>0&&C.k===1&&E.length===V.length-1,'Yes, it is a tree.','No.',{why:`|E| = ${E.length}, |V| − 1 = ${V.length-1}, components = ${C.k}.`})},
+{g:'Types',id:'forest',n:'Forest',d:'A graph with no cycles. Each component is a tree.',f:()=>verdict(V.length>0&&E.length===V.length-C.k,'Yes, no cycles.','No, it has a cycle.',{})},
+{g:'Types',id:'complete',n:'Complete',d:'Every pair of vertices is adjacent: |E| = |V|(|V| − 1) / 2.',f:()=>{const n=V.length;return verdict(n>0&&E.length===n*(n-1)/2,'Yes, complete.','No.',{why:`Needs ${n*(n-1)/2} edges, has ${E.length}.`})}},
+{g:'Types',id:'regular',n:'Regular',d:'Every vertex has the same degree.',f:()=>{const ds=[...new Set(dg.values())];return verdict(V.length>0&&ds.length===1,`Yes, ${ds[0]}-regular.`,'No.',{why:`Degrees present: ${ds.sort().join(', ')||'none'}.`})}},
+{g:'Types',id:'bip',n:'Bipartite',d:'Vertices split into two groups with every edge going between groups (no odd cycle).',f:()=>{const c=twoColor(g),hv={};if(c)c.forEach((x,k)=>hv[k]=x?1:0);return verdict(V.length>0&&!!c,'Yes. The two groups are blue and orange.','No, an odd cycle blocks it.',{hv})}},
+{g:'Types',id:'euler',n:'Eulerian',d:'A circuit using every edge exactly once exists when the graph is connected and all degrees are even. Exactly two odd vertices give a trail.',f:()=>{const odd=V.filter(v=>dg.get(v.id)%2).map(v=>v.id),act=comps().k-V.filter(v=>dg.get(v.id)===0).length,hv={};odd.forEach(v=>hv[v]=1);const ok=E.length>0&&act<=1&&(odd.length===0||odd.length===2);return verdict(ok,odd.length?'Yes, an Euler trail (not a circuit).':'Yes, an Euler circuit.','No.',{why:`Odd-degree vertices (orange): ${set(odd)}.`,hv})}}
+];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function render(){g=adj();C=comps();dg=new Map([...g].map(([k,v])=>[k,v.length]));
+ const t=TERMS.find(x=>x.id===cur),r=t.f(),hv=r.hv||{},he=r.he||{},pos=new Map(V.map(v=>[v.id,v]));
+ let s='';
+ E.forEach(([a,b])=>{const k=key(a,b),p=pos.get(a),q=pos.get(b),h=he[k];s+=`<line class="edge" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"${h!==undefined?` style="stroke:${PAL[h%6]};stroke-width:6"`:''}/><line data-e="${k}" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="transparent" stroke-width="18"/>`});
+ V.forEach(v=>{const h=hv[v.id],c=h!==undefined?PAL[h%6]:null,i=sel.indexOf(v.id);
+  s+=`<g data-v="${v.id}" style="cursor:pointer">${i>-1?`<circle class="ring" cx="${v.x}" cy="${v.y}" r="28"/><text class="tag" x="${v.x}" y="${v.y-34}">${i?'t':'s'}</text>`:''}${pend===v.id?`<circle class="ring" cx="${v.x}" cy="${v.y}" r="28"/>`:''}<circle class="vtx" cx="${v.x}" cy="${v.y}" r="21"${c?` style="fill:${c};stroke:${c}"`:''}/><text class="lbl" x="${v.x}" y="${v.y}"${c?' style="fill:#fff"':''}>${lab(v.id)}</text>${r.badges?`<circle class="bd" cx="${v.x+19}" cy="${v.y-19}" r="10"/><text class="bt" x="${v.x+19}" y="${v.y-19}">${dg.get(v.id)}</text>`:''}</g>`});
+ svg.innerHTML=s;
+ let h='',gr='';TERMS.forEach(x=>{if(x.g!==gr){if(gr)h+='</div>';gr=x.g;h+=`<h3>${gr}</h3><div class="chips">`}
+  const on=x.g==='Types'&&x.f().ok;h+=`<button class="chip${on?' on':''}" data-id="${x.id}" aria-pressed="${x.id===cur}">${x.n}</button>`});
+ $('#terms').innerHTML=h+'</div>';
+ $('#detail').innerHTML=`<h2>${t.n}</h2><p class="desc">${t.d}</p><div class="out">${V.length?r.out:'<p class="note">The canvas is empty. Choose Add vertex and tap the canvas, or load an example.</p>'}</div>`;
+ const H={select:'Tap a vertex to select it (first is s, second is t). Drag a vertex to move it.',vertex:'Tap an empty spot to add a vertex.',edge:pend===null?'Tap a vertex, then another vertex, to join them.':`Tap another vertex to join it to ${lab(pend)}.`,del:'Tap a vertex or an edge to delete it.'};
+ $('#hint').textContent=H[mode]+(sel.length?` Selected: s = ${lab(sel[0])}${sel[1]!==undefined?`, t = ${lab(sel[1])}`:''}.`:'')}
+// interaction
+let drag=null;
+const pt=e=>{const b=svg.getBoundingClientRect();return{x:clamp(Math.round((e.clientX-b.left)*W/b.width),24,W-24),y:clamp(Math.round((e.clientY-b.top)*H/b.height),24,H-24)}};
+svg.onpointerdown=e=>{const v=e.target.closest('[data-v]'),d=e.target.closest('[data-e]');drag={p:pt(e),moved:false,v:v?+v.dataset.v:null,e:d?d.dataset.e:null};svg.setPointerCapture(e.pointerId)};
+svg.onpointermove=e=>{if(!drag)return;const p=pt(e);if(Math.hypot(p.x-drag.p.x,p.y-drag.p.y)>5)drag.moved=true;if(drag.moved&&drag.v!==null&&mode==='select'){const v=V.find(x=>x.id===drag.v);v.x=p.x;v.y=p.y;render()}};
+svg.onpointerup=()=>{if(!drag)return;const d=drag;drag=null;if(d.moved)return;
+ if(mode==='select'){if(d.v===null)sel=[];else if(sel.includes(d.v))sel=sel.filter(x=>x!==d.v);else sel=sel.length>=2?[d.v]:[...sel,d.v]}
+ else if(mode==='vertex'){if(d.v===null&&d.e===null)addV(d.p.x,d.p.y)}
+ else if(mode==='edge'){if(d.v===null)pend=null;else if(pend===null)pend=d.v;else{addE(pend,d.v);pend=null}}
+ else if(mode==='del'){if(d.v!==null){V=V.filter(v=>v.id!==d.v);E=E.filter(e=>e[0]!==d.v&&e[1]!==d.v);sel=sel.filter(x=>x!==d.v)}else if(d.e)E=E.filter(e=>key(...e)!==d.e)}
+ render()};
+$('#terms').onclick=e=>{const b=e.target.closest('.chip');if(b){cur=b.dataset.id;render();$('#terms .chip[data-id="'+cur+'"]').focus()}};
+[['select','Select / move'],['vertex','Add vertex'],['edge','Add edge'],['del','Delete']].forEach(([k,n])=>{const b=document.createElement('button');b.textContent=n;b.dataset.m=k;b.setAttribute('aria-pressed',k===mode);b.onclick=()=>{mode=k;pend=null;document.querySelectorAll('#modes button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===k));render()};$('#modes').append(b)});
+// presets
+const circ=(k,r=140)=>Array.from({length:k},(_,i)=>[Math.round(320+r*Math.cos(2*Math.PI*i/k-Math.PI/2)),Math.round(210+r*Math.sin(2*Math.PI*i/k-Math.PI/2))]);
+const all=k=>{const r=[];for(let i=0;i<k;i++)for(let j=i+1;j<k;j++)r.push([i,j]);return r};
+const PRE={
+ 'Bridge example':[[[90,150],[90,300],[210,225],[430,225],[550,150],[550,300]],[[0,1],[1,2],[2,0],[3,4],[4,5],[5,3],[2,3]]],
+ 'Path':[[[80,210],[210,150],[340,270],[470,150],[570,210]],[[0,1],[1,2],[2,3],[3,4]]],
+ 'Cycle':[circ(6),[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0]]],
+ 'Complete K4':[circ(4),all(4)],
+ 'Tree':[[[320,60],[200,170],[440,170],[130,300],[270,300],[370,300],[510,300]],[[0,1],[0,2],[1,3],[1,4],[2,5],[2,6]]],
+ 'Bipartite K2,3':[[[160,120],[160,300],[480,70],[480,210],[480,350]],[[0,2],[0,3],[0,4],[1,2],[1,3],[1,4]]],
+ 'Two components':[[[110,110],[230,300],[60,300],[420,100],[520,210],[600,330]],[[0,1],[1,2],[2,0],[3,4],[4,5]]],
+ 'Clear':[[],[]]};
+function load(k){V=[];E=[];sel=[];pend=null;const[p,e]=PRE[k],ids=p.map(([x,y])=>addV(x,y));e.forEach(([a,b])=>addE(ids[a],ids[b]));render()}
+Object.keys(PRE).forEach(k=>{const b=document.createElement('button');b.textContent=k;b.onclick=()=>load(k);$('#presets').append(b)});
+load('Bridge example');
+</script>
+</body>
+</html>
